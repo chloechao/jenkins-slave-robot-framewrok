@@ -2,18 +2,32 @@ FROM evarga/jenkins-slave
 MAINTAINER Chloe Chao <chanechao@gmail.com>
 
 RUN apt-get -qq update
-RUN apt-get -qq -y install curl unzip
 
 # Install Robot Framework and relate libraries
-RUN apt-get install -y python python-pip
-RUN pip install robotframework
-RUN pip install robotframework-selenium2library
+RUN apt-get install --fix-missing -y python python-pip \
+    udev \
+    chromium-bsu \
+    chromium-chromedriver \
+    xvfb
 
-# Install Chrome WebDriver
-RUN CHROMEDRIVER_VERSION=`curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE` && \
-    mkdir -p /opt/chromedriver-$CHROMEDRIVER_VERSION && \
-    curl -sS -o /tmp/chromedriver_linux64.zip http://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip && \
-    unzip -qq /tmp/chromedriver_linux64.zip -d /opt/chromedriver-$CHROMEDRIVER_VERSION && \
-    rm /tmp/chromedriver_linux64.zip && \
-    chmod +x /opt/chromedriver-$CHROMEDRIVER_VERSION/chromedriver && \
-    ln -fs /opt/chromedriver-$CHROMEDRIVER_VERSION/chromedriver /usr/local/bin/chromedriver
+RUN pip install --no-cache-dir \
+  robotframework==3.0.2 \
+  robotframework-selenium2library==1.8.0 \
+  selenium==3.3.1 \
+  requests \
+  robotframework-pabot
+
+# Chrome requires docker to have cap_add: SYS_ADMIN if sandbox is on.
+# Disabling sandbox and gpu as default.
+RUN sed -i "s/self._arguments\ =\ \[\]/self._arguments\ =\ \['--no-sandbox',\ '--disable-gpu'\]/" /usr/local/lib/python2.7/site-packages/selenium/webdriver/chrome/options.py
+
+COPY glbot /opt/bin/glbot
+RUN chmod +x /opt/bin/glbot
+COPY entry_point.sh /opt/bin/entry_point.sh
+RUN chmod +x /opt/bin/entry_point.sh
+
+ENV SCREEN_WIDTH 1280
+ENV SCREEN_HEIGHT 720
+ENV SCREEN_DEPTH 16
+
+ENTRYPOINT [ "/opt/bin/entry_point.sh" ]
